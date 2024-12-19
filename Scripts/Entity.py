@@ -44,6 +44,7 @@ class Predator(Entity):
         self.speed = 1
         self.type = "Predator"
         self.eat_gain = 50
+        self.exists = 1.5
 
     def get_vision(self):
         probability = self.world.luminance / 100
@@ -113,7 +114,7 @@ class Prey(Entity):
         super().__init__(pos, world)
         self.speed = 1
         self.type = "Prey"
-        self.exists = 10
+        self.exists = 1
 
     def get_vision(self):
         probability = self.world.luminance / 100

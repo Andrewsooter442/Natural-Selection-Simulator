@@ -20,14 +20,13 @@ class Draw(World):
         for pos in keys:
             if pos in self.predator_set.keys():
                 predator = self.predator_set[pos]
-                predator.Energy -= 1
+                predator.Energy -= predator.exists
                 if predator.Energy > predator.Max_Energy:
                     predator.Energy = predator.Max_Energy
                 if predator.Energy <= 0:
                     del self.predator_set[pos]
                     continue
                 trans = self.map_value(predator.Energy, 1, predator.Max_Energy, 50, 255)
-                print(trans, predator.Energy)
                 pygame.draw.circle(
                     self.surface,
                     (255, 0, 0, int(trans)),
@@ -37,16 +36,20 @@ class Draw(World):
                     ),
                     self.cell_size // 2,
                 )
-        for pos in self.prey_set.keys():
-            self.prey_set[pos].Energy -= 2
-            ene = self.prey_set[pos].Energy
+        key = list(self.prey_set.keys())
+        for pos in key:
+            prey = self.prey_set[pos]
+            prey.Energy -= prey.exists
+            if prey.Energy > prey.Max_Energy:
+                prey.Energy = prey.Max_Energy
+            if prey.Energy <= 0:
+                del self.prey_set[pos]
+                continue
+
+            trans = self.map_value(prey.Energy, 1, prey.Max_Energy, 50, 255)
             pygame.draw.circle(
                 self.surface,
-                (
-                    0,
-                    0,
-                    255,
-                ),
+                (0, 0, 255, trans),
                 (
                     pos[0] * self.cell_size + self.cell_size // 2,
                     pos[1] * self.cell_size + self.cell_size // 2,
