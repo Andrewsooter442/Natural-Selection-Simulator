@@ -14,8 +14,8 @@ class Cell:
 
 class World:
     def __init__(
-            self, grid=Vector2(int(250), int(140)), prey_size=3000, predator_size=3000,
-            number_of_generations: int = 10000, size=5,
+            self, grid=Vector2(int(50), int(35)), prey_size=100, predator_size=100,
+            number_of_generations: int = 10000, size=20,
             predator_config_path='../Neat/predator_config.txt', prey_config_path='../Neat/prey_config.txt'
 
     ):
@@ -63,11 +63,13 @@ class World:
             self.prey_config_path
         )
         self.prey_config.pop_size = self.prey_size  # set the population size in the config
-        self.prey_population = neat.Population(self.prey_config)
+        if self.prey_population is None:
+            print("Initializing prey population")
+            self.prey_population = neat.Population(self.prey_config)
         for genome in self.prey_population.population.values():
             x = random.randint(0, (int(self.GRID.x) - 2) // 2)
             y = random.randint(0, int(self.GRID.y) - 2)
-            self.prey_set[(x, y)] = Prey(Vector2(int(x), int(y)), self, self.prey_config, genome=genome)
+            self.prey_set[(x, y)] = Prey(Vector2(int(x), int(y)), self, self.prey_config, genome=genome, )
 
         # Population with Predator
         self.predator_config = neat.Config(
@@ -78,7 +80,9 @@ class World:
             self.predator_config_path
         )
         self.predator_config.pop_size = self.prey_size  # set the population size in the config
-        self.predator_population = neat.Population(self.prey_config)  # list of tuples of (genome,genome_id)
+        if self.predator_population is None:
+            print("Initializing predator")
+            self.predator_population = neat.Population(self.prey_config)  # list of tuples of (genome,genome_id)
         for genome in self.predator_population.population.values():
             x = random.randint((int(self.GRID.x) - 2) // 2, int(self.GRID.x) - 2)
             y = random.randint(0, int(self.GRID.y) - 2)

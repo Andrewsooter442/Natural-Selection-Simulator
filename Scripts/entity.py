@@ -5,10 +5,9 @@ from pygame import Vector2
 
 class Entity(ABC):
     def __init__(self, pos: Vector2, world, config, genome=None):
-        self.Max_Energy = 100
         self.world = world
+        self.movement_cost = 2
         self.Energy = 100
-        self.movement_cost = 0
         self.pos: Vector2 = pos
         self.top_speed = 20.0
         self.vision = 3
@@ -79,11 +78,14 @@ class Predator(Entity):
         super().__init__(pos, world, predator_config, genome)
         self.speed = 1
         self.type = "Predator"
-        self.eat_gain = 50
-        self.exists = 1.5
+        self.exists = 1
+        # self.Max_Energy = self.world.GRID.x * (self.movement_cost)
+        self.Max_Energy = 100
+        self.eat_gain = self.Max_Energy // 2
         self.fitness = 0
-        self.reward = 20
+        self.reward = 50
         self.genome.fitness = self.fitness
+        self.dies = self.Max_Energy // 2 * 3
 
     def get_vision(self):
         probability = self.world.luminance / 100
@@ -170,11 +172,14 @@ class Predator(Entity):
 
         # Eat prey
         if (self.pos.x, self.pos.y) in self.world.prey_set:
+            # Punishment for being eaten
             prey = self.world.prey_set[self.pos.x, self.pos.y]
             prey.fitness -= prey.get_killed / self.world.time
             prey.genome.fitness = prey.fitness
             del self.world.prey_set[(self.pos.x, self.pos.y)]
+
             self.Energy += self.eat_gain
+
             # Reward for eating prey
             self.fitness += self.reward
             self.genome.fitness = self.fitness
@@ -187,7 +192,10 @@ class Prey(Entity):
         self.type = "Prey"
         self.fitness = 50
         self.exists = 1
-        self.get_killed = 20
+        # self.Max_Energy = self.world.GRID.x * (self.movement_cost + self.exists)
+        self.Max_Energy = 100
+        self.get_killed = self.Max_Energy / 2
+        self.dies = self.Max_Energy // 6
         self.genome.fitness = self.fitness
 
     def get_vision(self):
@@ -265,4 +273,5 @@ class Prey(Entity):
         ):
             del self.world.prey_set[(self.pos.x, self.pos.y)]
             self.pos = pos
+            self.Energy -= self.movement_cost
             self.world.prey_set[(self.pos.x, self.pos.y)] = self
