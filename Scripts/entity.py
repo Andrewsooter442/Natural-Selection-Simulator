@@ -1,11 +1,10 @@
-import random
-import pygame
+import random, pygame, neat
 from abc import ABC, abstractmethod
 from pygame import Vector2
 
 
 class Entity(ABC):
-    def __init__(self, pos: Vector2, world):
+    def __init__(self, pos: Vector2, world, config, genome=None):
         self.Max_Energy = 100
         self.world = world
         self.Energy = 100
@@ -13,38 +12,78 @@ class Entity(ABC):
         self.pos: Vector2 = pos
         self.top_speed = 20.0
         self.vision = 3
+        self.type = genome
+
+        # Neat parameters
+        self.config = config
+        self.config = config
+        self.genome = genome
+        self.net = neat.nn.FeedForwardNetwork.create(self.genome, config)
 
     # Check of other species in the neighbour
     @abstractmethod
-    def get_vision(self) -> []: ...
+    def get_vision(self) -> []:
+        ...
 
-    # Get the input for the neural network
+    '''
+    Get the input for the neural network
+    Energy
+    world_luminance
+    Opposite species in N (0 if no 3-1 if yes (depending of how close it is)) for 3 blocks
+                        S
+                        E
+                        W
+    Type of terrain     Land (0 if false 1 if true)
+                        Water
+                        Forest
+    '''
+
     def network_inputs(self):
         to_ret = []
-        entity_info = [
-            self.Energy,
-            self.pos.x,
-            self.pos.y,
-        ]
-        self.world = [self.world.luminance]
+        entity_info = [self.Energy / 100]
+        luminance = [self.world.luminance / 100]
         entity_vision = self.get_vision()
-        to_ret.extend(entity_info)
-        to_ret.extend(self.world)
-        to_ret.extend(entity_vision)
+        # print((entity_vision))
+        region = []
+        x = int(self.pos.x)
+        y = int(self.pos.y)
+        if self.world.map[x][y].element == "Land":
+            region = [1, 0, 0]
+        if self.world.map[x][y].element == "Forest":
+            region = [0, 1, 0]
+        if self.world.map[x][y].element == "Water":
+            region = [0, 0, 1]
+        to_ret += entity_info
+        to_ret += luminance
+        to_ret += entity_vision
+        to_ret += region
         return to_ret
+
+    # Output action Depends of the species specified on the implementation
+    @abstractmethod
+    def preform_action(self, output):
+        ...
+
+    # Use the neural network to make a decision based on inputs
+    def decide(self):
+        return self.net.activate(self.network_inputs())
 
     # Implements movement and collision and feeding
     @abstractmethod
-    def move_and_collide(self, direction, speed): ...
+    def move_and_collide(self, direction, speed):
+        ...
 
 
 class Predator(Entity):
-    def __init__(self, pos: Vector2, world):
-        super().__init__(pos, world)
+    def __init__(self, pos: Vector2, world, predator_config, genome=None):
+        super().__init__(pos, world, predator_config, genome)
         self.speed = 1
         self.type = "Predator"
         self.eat_gain = 50
         self.exists = 1.5
+        self.fitness = 0
+        self.reward = 20
+        self.genome.fitness = self.fitness
 
     def get_vision(self):
         probability = self.world.luminance / 100
@@ -87,43 +126,76 @@ class Predator(Entity):
                 if pos in self.world.prey_set:
                     to_ret[3] = random.choices(
                         [self.vision + 1 - i, 0], weights=[probability, 1 - probability]
-                    )
+                    )[0]
+        return to_ret
 
-            return to_ret
+    '''
+      Probability of moving North
+                            South
+                            East
+                            West
+      Probability of doing nothing
+      Probability of killing entity in front
+      '''
 
+    def preform_action(self, output):
+        max_index = output.index(max(output))
+        match max_index:
+            case 0:
+                self.move_and_collide(Vector2(0, -1), 1)
+            case 1:
+                self.move_and_collide(Vector2(0, 1), 1)
+            case 2:
+                self.move_and_collide(Vector2(1, 0), 1)
+            case 3:
+                self.move_and_collide(Vector2(-1, 0), 1)
+            case 4:
+                self.move_and_collide(Vector2(0, 0), 1)
+        '''Implement the killing mechanism'''
+
+    # Move and kill
+    # set the fitness function of prey if it is killed
     def move_and_collide(self, direction: Vector2, speed):
-        # Eat prey
-        if (self.pos.x, self.pos.y) in self.world.prey_set:
-            del self.world.prey_set[(self.pos.x, self.pos.y)]
-            self.Energy += self.eat_gain
         # Move
         pos = self.pos + direction * speed
         if (
                 (pos.x, pos.y) not in self.world.predator_set
-                and pos[0] < self.world.GRID.x
-                and pos[1] < self.world.GRID.y
+                and pos[0] < self.world.GRID.x and pos[0] >= 0
+                and pos[1] < self.world.GRID.y and pos[1] >= 0
         ):
             del self.world.predator_set[(self.pos.x, self.pos.y)]
             self.pos = pos
             self.world.predator_set[(self.pos.x, self.pos.y)] = self
             self.Energy -= self.movement_cost
 
+        # Eat prey
+        if (self.pos.x, self.pos.y) in self.world.prey_set:
+            prey = self.world.prey_set[self.pos.x, self.pos.y]
+            prey.fitness -= prey.get_killed / self.world.time
+            prey.genome.fitness = prey.fitness
+            del self.world.prey_set[(self.pos.x, self.pos.y)]
+            self.Energy += self.eat_gain
+            # Reward for eating prey
+            self.fitness += self.reward
+            self.genome.fitness = self.fitness
+
 
 class Prey(Entity):
-    def __init__(self, pos: Vector2, world):
-        super().__init__(pos, world)
+    def __init__(self, pos: Vector2, world, prey_config, genome=None):
+        super().__init__(pos, world, prey_config, genome)
         self.speed = 1
         self.type = "Prey"
+        self.fitness = 50
         self.exists = 1
+        self.get_killed = 20
+        self.genome.fitness = self.fitness
 
     def get_vision(self):
         probability = self.world.luminance / 100
-
         # to_ret = [opposite species in north till vision, south, east, west,]
         to_ret = [0 for _ in range(4)]
 
         for i in range(1, self.vision + 1):
-
             # North vision
             if self.pos.y - i >= 0 and to_ret[i] == 0:
                 pos = (self.pos.x, self.pos.y - 1)
@@ -157,16 +229,39 @@ class Prey(Entity):
                 if pos in self.world.predator_set:
                     to_ret[3] = random.choices(
                         [self.vision + 1 - i, 0], weights=[probability, 1 - probability]
-                    )
+                    )[0]
 
-            return to_ret
+        return to_ret
+
+    '''
+    Probability of moving North
+                          South
+                          East
+                          West
+    Probability of doing nothing
+    '''
+
+    def preform_action(self, output):
+        max_index = output.index(max(output))
+        match max_index:
+            case 0:
+                self.move_and_collide(Vector2(0, -1), 1)
+            case 1:
+                self.move_and_collide(Vector2(0, 1), 1)
+            case 2:
+                self.move_and_collide(Vector2(1, 0), 1)
+            case 3:
+                self.move_and_collide(Vector2(-1, 0), 1)
+            case 4:
+                self.move_and_collide(Vector2(0, 0), 1)
 
     def move_and_collide(self, direction: Vector2, speed):
+        self.genome.fitness = self.fitness
         pos = self.pos + direction * speed
         if (
                 (pos.x, pos.y) not in self.world.prey_set
-                and pos[0] < self.world.GRID.x
-                and pos[1] < self.world.GRID.y
+                and pos[0] < self.world.GRID.x and pos[0] >= 0
+                and pos[1] < self.world.GRID.y and pos[1] >= 0
         ):
             del self.world.prey_set[(self.pos.x, self.pos.y)]
             self.pos = pos
