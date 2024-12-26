@@ -114,8 +114,7 @@ predator_population.reporters.add(StdOutReporter(True))
 predator_statistics = StatisticsReporter()
 for generation in range(test.num_generations):
     test.FPS = 10000
-    if generation % 10 == 0:
-        print("sup")
+    if generation % 20 == 0:
         test.FPS = 10
     test.populate()
     while test.prey_set or test.predator_set:
