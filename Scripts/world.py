@@ -68,6 +68,7 @@ class World:
             self.prey_population = neat.Population(self.prey_config)
         for genome in self.prey_population.population.values():
             x = random.randint(0, (int(self.GRID.x) - 2) // 2)
+            # x = random.randint(0, (int(self.GRID.x) - 2))
             y = random.randint(0, int(self.GRID.y) - 2)
             self.prey_set[(x, y)] = Prey(Vector2(int(x), int(y)), self, self.prey_config, genome=genome, )
 
@@ -85,6 +86,7 @@ class World:
             self.predator_population = neat.Population(self.prey_config)  # list of tuples of (genome,genome_id)
         for genome in self.predator_population.population.values():
             x = random.randint((int(self.GRID.x) - 2) // 2, int(self.GRID.x) - 2)
+            # x = random.randint(0, int(self.GRID.x) - 2)
             y = random.randint(0, int(self.GRID.y) - 2)
             self.predator_set[(x, y)] = Predator(Vector2(int(x), int(y)), self, self.predator_config, genome=genome)
 
