@@ -15,6 +15,7 @@ class Draw(World):
         self.screen = pygame.display.set_mode(self.RESOLUTION)
         self.surface = pygame.Surface(self.RESOLUTION, pygame.SRCALPHA)
         self.FPS = 20
+        self.run = True
         self.clock = pygame.time.Clock()
 
     # Tasks that run on every frame
@@ -45,10 +46,6 @@ class Draw(World):
             )
 
     def tasks(self):
-        # Speed up if only one species is left
-        if not self.prey_set or not self.predator_set:
-            self.FPS = 10000
-
         # For predators
         keys = list(self.predator_set.keys())
         for pos in keys:
@@ -80,11 +77,23 @@ class Draw(World):
         self.time += 1 / self.FPS
         self.screen.fill(pygame.Color("white"))
         self.surface.fill(pygame.Color("white"))
-        self.clock.tick(self.FPS)
-        # self.clock.tick()
+        # print(self.clock.get_fps())
+        if self.run:
+            self.clock.tick(self.FPS)
+        else:
+            self.clock.tick()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_f:
+                    self.run = False
+                if event.key == pygame.K_UP:
+                    self.run = True
+                    self.FPS += 1
+                if event.key == pygame.K_DOWN:
+                    self.run = True
+                    self.FPS -= 1
 
     def more_shit(self):
         self.draw_entity()
@@ -113,9 +122,6 @@ predator_population = test.predator_population
 predator_population.reporters.add(StdOutReporter(True))
 predator_statistics = StatisticsReporter()
 for generation in range(test.num_generations):
-    test.FPS = 10000
-    if generation % 20 == 0:
-        test.FPS = 10
     test.populate()
     while test.prey_set or test.predator_set:
         test.loop()
