@@ -1,6 +1,6 @@
 # Natural Selection Sim
 
-To run the sim
+To run the simulation
 
 Linux and macos
 
